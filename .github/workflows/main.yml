@@ -1,1 +1,47 @@
+name: 自动打包为exe
 
+# 触发条件：推送到main分支时执行
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest  # 使用GitHub的Windows服务器
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4  # 拉取当前仓库代码
+
+      - name: 设置Python环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'  # 项目依赖的Python版本（根据项目实际情况修改）
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt  # 安装项目依赖
+          pip install pyinstaller  # 安装打包工具
+
+      - name: 安装额外工具（如ffmpeg，项目可能需要）
+        run: |
+          choco install ffmpeg  # Windows用choco安装ffmpeg（项目依赖）
+          choco install aria2    # 安装aria2（项目文档提到的依赖）
+
+      - name: 打包为exe
+        run: |
+          # 假设主程序入口是main.py，根据项目实际入口文件修改
+          pyinstaller --onefile --name VideoCaptioner main.py --add-data "resources/*;resources"
+
+      - name: 上传打包结果作为Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/  # PyInstaller默认输出目录
+
+      - name: 创建Release并上传exe
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: auto-build-${{ github.sha }}  # 用commit哈希作为版本标签
+          files: dist/VideoCaptioner.exe  # 上传打包好的exe
